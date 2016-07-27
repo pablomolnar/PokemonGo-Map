@@ -10,6 +10,7 @@ from flask_compress import Compress
 from datetime import datetime
 from s2sphere import *
 from pogom.utils import get_args
+from pogom.search import search_control
 
 from . import config
 from .models import Pokemon, Gym, Pokestop, ScannedLocation
@@ -27,6 +28,23 @@ class Pogom(Flask):
         self.route("/loc", methods=['GET'])(self.loc)
         self.route("/next_loc", methods=['POST'])(self.next_loc)
         self.route("/mobile", methods=['GET'])(self.list_pokemon)
+        self.route("/search_control", methods=['GET'])(self.get_search_status)
+        self.route("/search_control", methods=['POST'])(self.update_search_status)
+    
+    def get_search_status(self):
+        return search_control.status()
+
+    def update_search_status(self):
+        status = request.args.get('status', '')
+        if status == 'start' or status == 'stop':
+            if status == 'start':
+                search_control.start()
+            else:
+                search_control.stop()
+        else:
+            status = 'status invalid'
+
+        return search_control.status()
 
     def fullmap(self):
         args = get_args()

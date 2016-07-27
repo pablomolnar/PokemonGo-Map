@@ -310,6 +310,7 @@ function createSearchMarker() {
     return marker;
 }
 
+
 function initSidebar() {
     $('#gyms-switch').prop('checked', Store.get('showGyms'));
     $('#pokemon-switch').prop('checked', Store.get('showPokemon'));
@@ -317,6 +318,10 @@ function initSidebar() {
     $('#geoloc-switch').prop('checked', Store.get('geoLocate'));
     $('#scanned-switch').prop('checked', Store.get('showScanned'));
     $('#sound-switch').prop('checked', Store.get('playSound'));
+    $.get('search_control').then(function(data){
+        $('#search-switch').prop('checked', data == 'searching');
+    })
+    
 
     var searchBox = new google.maps.places.SearchBox(document.getElementById('next-location'));
 
@@ -1141,6 +1146,10 @@ $(function () {
 
     $('#sound-switch').change(function() {
         Store.set("playSound", this.checked);
+    });
+
+    $('#search-switch').change(function() {
+        $.post('search_control?status='+encodeURIComponent(this.checked?'start':'stop'));
     });
 
     $('#pokemon-icons').change(function() {

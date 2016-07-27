@@ -20,7 +20,6 @@ log = logging.getLogger(__name__)
 TIMESTAMP = '\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000'
 api = PGoApi()
 alarms = Notifications()
-
 #Constants for Hex Grid
 #Gap between vertical and horzonal "rows"
 lat_gap_meters = 150
@@ -31,6 +30,24 @@ meters_per_degree = 111111
 lat_gap_degrees = float(lat_gap_meters) / meters_per_degree
 
 search_queue = Queue(config['SEARCH_QUEUE_DEPTH'])
+
+class SearchControl():
+    def __init__(self):
+        self.state = 'searching'
+        return
+
+    def start(self):
+        self.state = 'searching'
+        return
+
+    def stop(self):
+        self.state = 'idle'
+        return
+
+    def status(self):
+        return self.state
+
+search_control = SearchControl()
 
 def calculate_lng_degrees(lat):
     return float(lng_gap_meters) / (meters_per_degree * math.cos(math.radians(lat)))
@@ -114,33 +131,34 @@ def create_search_threads(num) :
 def search_thread(args):
     queue = args
     while True:
-        i, total_steps, step_location, step, lock = queue.get()
-        log.debug("Search queue depth is: " + str(queue.qsize()))
-        response_dict = {}
-        failed_consecutive = 0
-        while not response_dict:
-            response_dict = send_map_request(api, step_location)
-            if response_dict:
-                with lock:
-                    try:
-                        pokemons, pokestops, gyms = parse_map(response_dict, i, step, step_location)
-                        alarms.notify_pkmns(pokemons)
-                    except KeyError:
-                        log.error('Scan step {:d} failed. Response dictionary key error.'.format(step))
-                        failed_consecutive += 1
-                        if(failed_consecutive >= config['REQ_MAX_FAILED']):
-                            log.error('Niantic servers under heavy load. Waiting before trying again')
-                            time.sleep(config['REQ_HEAVY_SLEEP'])
-                            failed_consecutive = 0
-                        response_dict = {}
-            else:
-                log.info('Map Download failed. Trying again.')
-<<<<<<< HEAD
-=======
-                time.sleep(config['REQ_SLEEP'])
+        if search_control.status() != 'searching':
+            log.info('Search status: stopped')
+            time.sleep(config['REQ_SLEEP'] * 10)
+        else:
+            i, total_steps, step_location, step, lock = queue.get()
+            log.debug("Search queue depth is: " + str(queue.qsize()))
+            response_dict = {}
+            failed_consecutive = 0
+            while not response_dict:
+                response_dict = send_map_request(api, step_location)
+                if response_dict:
+                    with lock:
+                        try:
+                            pokemons, pokestops, gyms = parse_map(response_dict, i, step, step_location)
+                            alarms.notify_pkmns(pokemons)
+                        except KeyError:
+                            log.error('Scan step {:d} failed. Response dictionary key error.'.format(step))
+                            failed_consecutive += 1
+                            if(failed_consecutive >= config['REQ_MAX_FAILED']):
+                                log.error('Niantic servers under heavy load. Waiting before trying again')
+                                time.sleep(config['REQ_HEAVY_SLEEP'])
+                                failed_consecutive = 0
+                            response_dict = {}
+                else:
+                    log.info('Map Download failed. Trying again.')
+                    time.sleep(config['REQ_SLEEP'])
 
->>>>>>> 1b9f720cc9209d7f9f87e9b3e4d282505c4a5fdf
-        time.sleep(config['REQ_SLEEP'])
+            time.sleep(config['REQ_SLEEP'])
 
 def process_search_threads(search_threads, curr_steps, total_steps):
     for thread in search_threads:
